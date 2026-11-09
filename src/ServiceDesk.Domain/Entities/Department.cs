@@ -8,7 +8,7 @@ public sealed class Department : Entity
     public string Name { get; private set; } = null!;
 
     // For EF Core:
-    private Department(){}
+    private Department() { }
 
     public Department(string name)
     {
