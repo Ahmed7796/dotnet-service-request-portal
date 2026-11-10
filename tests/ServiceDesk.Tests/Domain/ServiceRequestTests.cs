@@ -132,13 +132,13 @@ public class ServiceRequestTests
     public void Approve_FirstStepOfTwo_StatusInReview()
     {
         var request = SubmitValid();
-        
+
         request.Approve(_financeHead, null, Now);
         Assert.Equal(RequestStatus.InReview, request.Status);
         Assert.Equal(StepDecision.Approved, request.ApprovalSteps[0].Decision);
 
         var current = request.CurrentStep;
-        
+
         Assert.NotNull(current);
         Assert.Equal(2, current.Order);
     }
@@ -152,7 +152,7 @@ public class ServiceRequestTests
 
         Assert.Equal(RequestStatus.Approved, request.Status);
 
-        
+
         Assert.Null(request.CurrentStep);
 
         Assert.All(request.ApprovalSteps, step =>
@@ -166,12 +166,12 @@ public class ServiceRequestTests
     public void Approve_ByRequester_Throws()
     {
         var request = SubmitValid();
-        Assert.Throws<ApprovalNotAllowedException>(() => 
+        Assert.Throws<ApprovalNotAllowedException>(() =>
         request.Approve(_requester, null, Now)
         );
 
         Assert.Equal(RequestStatus.Submitted, request.Status);
-        Assert.Equal(StepDecision.Pending ,request.ApprovalSteps[0].Decision);
+        Assert.Equal(StepDecision.Pending, request.ApprovalSteps[0].Decision);
         Assert.Single(request.AuditLogs);
     }
 }

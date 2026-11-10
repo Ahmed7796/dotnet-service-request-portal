@@ -73,22 +73,22 @@ public sealed class ServiceRequest : Entity
     {
         ArgumentNullException.ThrowIfNull(approver);
 
-        if(!RequestStateMachine.CanFire(Status, RequestTrigger.ApproveStep))
-        throw new InvalidStateTransitionException($"Cannot approve a request that is {Status}");
-        
+        if (!RequestStateMachine.CanFire(Status, RequestTrigger.ApproveStep))
+            throw new InvalidStateTransitionException($"Cannot approve a request that is {Status}");
+
         var step = CurrentStep;
         if (step is null)
-        throw new InvalidStateTransitionException("No approval step is awaiting a decision.");
+            throw new InvalidStateTransitionException("No approval step is awaiting a decision.");
 
         if (RequesterId == approver.Id)
-        throw new ApprovalNotAllowedException("You cannot approve your own request.");
+            throw new ApprovalNotAllowedException("You cannot approve your own request.");
 
         if (!approver.IsApprover || approver.Position != step.Position)
-        throw new ApprovalNotAllowedException($"Only {step.Position} is authorized to approve step {step.Order}.");
+            throw new ApprovalNotAllowedException($"Only {step.Position} is authorized to approve step {step.Order}.");
 
         if (step.Scope == ApprovalScope.RequesterDepartment && approver.DepartmentId != DepartmentId)
-        throw new ApprovalNotAllowedException($"Step {step.Order} must only be approved by a {step.Position} in the requester's department.");
-    
+            throw new ApprovalNotAllowedException($"Step {step.Order} must only be approved by a {step.Position} in the requester's department.");
+
         var before = Status;
         step.Approve(approver.Id, comment, now);
 
