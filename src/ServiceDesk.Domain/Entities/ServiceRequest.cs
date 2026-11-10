@@ -21,6 +21,7 @@ public sealed class ServiceRequest : Entity
     public RequestType Type { get; private set; }
     public RequestStatus Status { get; private set; } = RequestStatus.Submitted;
     public Guid RequesterId { get; private set; }
+    public ApproverPosition? RequesterPosition { get; private set; } // Snapshot at submission, used for the Admin fallback.
     public Guid DepartmentId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -52,6 +53,7 @@ public sealed class ServiceRequest : Entity
 
         ServiceRequest request = new ServiceRequest();
         request.RequesterId = requester.Id;
+        request.RequesterPosition = requester.IsApprover ? requester.Position : null;
         request.Title = trimmedTitle;
         request.Description = trimmedDescription;
         request.DepartmentId = requester.DepartmentId;
@@ -60,12 +62,38 @@ public sealed class ServiceRequest : Entity
         request.CreatedAt = now;
         request.UpdatedAt = now;
 
+        request._auditLogs.Add(new AuditLog(request.Id, request.RequesterId, AuditAction.Submitted, null, RequestStatus.Submitted, "Submitted.", now));
+        
         foreach (var step in workflow.Steps.OrderBy(s => s.Order))
         {
-            request._approvalSteps.Add(new ApprovalStep(request.Id, step.Order, step.Position, step.Scope));
-        }
+            var requesterHoldsStep = requester.IsApprover && requester.Position == step.Position;
+        
+            ApproverPosition? escalated = requesterHoldsStep ? EscalationPolicy.Escalate(step.Position) : null;
 
-        request._auditLogs.Add(new AuditLog(request.Id, request.RequesterId, AuditAction.Submitted, null, RequestStatus.Submitted, "Submitted.", now));
+            if (escalated is not null)
+            {
+                request._approvalSteps.Add(new ApprovalStep(
+                    request.Id,
+                    step.Order,
+                    escalated.Value,
+                    ApprovalScope.Global,
+                    escalatedFrom: step.Position));
+                request._auditLogs.Add(new AuditLog(
+                    request.Id,
+                    requester.Id,
+                    AuditAction.StepEscalated,
+                    RequestStatus.Submitted,
+                    RequestStatus.Submitted,
+                    $"Step {step.Order} escalated from {step.Position} to {escalated} (requester holds {step.Position})",
+                    now
+                ));
+            }
+            else
+            {
+                request._approvalSteps.Add(new ApprovalStep(request.Id, step.Order, step.Position, step.Scope));
+            }
+        
+        }
         return request;
     }
 
@@ -73,21 +101,7 @@ public sealed class ServiceRequest : Entity
     {
         ArgumentNullException.ThrowIfNull(approver);
 
-        if (!RequestStateMachine.CanFire(Status, RequestTrigger.ApproveStep))
-            throw new InvalidStateTransitionException($"Cannot approve a request that is {Status}");
-
-        var step = CurrentStep;
-        if (step is null)
-            throw new InvalidStateTransitionException("No approval step is awaiting a decision.");
-
-        if (RequesterId == approver.Id)
-            throw new ApprovalNotAllowedException("You cannot approve your own request.");
-
-        if (!approver.IsApprover || approver.Position != step.Position)
-            throw new ApprovalNotAllowedException($"Only {step.Position} is authorized to approve step {step.Order}.");
-
-        if (step.Scope == ApprovalScope.RequesterDepartment && approver.DepartmentId != DepartmentId)
-            throw new ApprovalNotAllowedException($"Step {step.Order} must only be approved by a {step.Position} in the requester's department.");
+        var step = EnsureCanDecideCurrentStep(approver, RequestTrigger.ApproveStep);
 
         var before = Status;
         step.Approve(approver.Id, comment, now);
@@ -103,7 +117,112 @@ public sealed class ServiceRequest : Entity
             AuditAction.StepApproved,
             before,
             Status,
-            $"Step {step.Order} ({step.Position}) approved.",
+            $"Step {step.Order} ({step.Position}) approved{OnBehalfNote(approver, step)}.",
             now));
+    }
+
+    public void Reject(User approver, string reason, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(approver);
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("A reason is required to reject a request.", nameof(reason));
+
+        var trimmedReason = reason.Trim();
+        if (trimmedReason.Length > ApprovalStep.CommentMaxLength)
+            throw new ArgumentException($"Reason can be {ApprovalStep.CommentMaxLength} characters at most.", nameof(reason));
+
+        var step = EnsureCanDecideCurrentStep(approver, RequestTrigger.Reject);
+
+        var before = Status;
+        step.Reject(approver.Id, trimmedReason, now);
+        SkipPendingSteps();
+
+        Status = RequestStateMachine.Fire(before, RequestTrigger.Reject);
+        UpdatedAt = now;
+
+        _auditLogs.Add(
+            new AuditLog(Id,
+            approver.Id,
+            AuditAction.StepRejected,
+            before,
+            Status,
+            $"Step {step.Order} ({step.Position}) rejected{OnBehalfNote(approver, step)}: {trimmedReason}",
+            now));
+    }
+
+    public void Cancel(User requester, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(requester);
+
+        if (!RequestStateMachine.CanFire(Status, RequestTrigger.Cancel))
+            throw new InvalidStateTransitionException($"Cannot cancel a request that is {Status}");
+
+        if (requester.Id != RequesterId)
+            throw new ApprovalNotAllowedException("Only the original requester can cancel this request.");
+
+        var before = Status;
+        SkipPendingSteps();
+
+        Status = RequestStateMachine.Fire(before, RequestTrigger.Cancel);
+        UpdatedAt = now;
+
+        _auditLogs.Add(new AuditLog(Id, requester.Id, AuditAction.Cancelled, before, Status, "Cancelled by requester.", now));
+    }
+
+    public void Fulfil(User admin, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(admin);
+
+        if (!RequestStateMachine.CanFire(Status, RequestTrigger.Fulfil))
+            throw new InvalidStateTransitionException($"Cannot fulfil a request that is {Status}");
+
+        if (admin.Role != UserRole.Admin)
+            throw new ApprovalNotAllowedException("Only an Admin can fulfil a request.");
+
+        var before = Status;
+        Status = RequestStateMachine.Fire(before, RequestTrigger.Fulfil);
+        UpdatedAt = now;
+
+        _auditLogs.Add(new AuditLog(Id, admin.Id, AuditAction.Fulfilled, before, Status, "Fulfilled.", now));
+    }
+
+    private ApprovalStep EnsureCanDecideCurrentStep(User actor, RequestTrigger trigger)
+    {
+        var verb = trigger == RequestTrigger.Reject ? "reject" : "approve";
+
+        if (!RequestStateMachine.CanFire(Status, trigger))
+            throw new InvalidStateTransitionException($"Cannot {verb} a request that is {Status}");
+
+        var step = CurrentStep;
+        if (step is null)
+            throw new InvalidStateTransitionException("No approval step is awaiting a decision.");
+
+        if (RequesterId == actor.Id)
+            throw new ApprovalNotAllowedException($"You cannot {verb} your own request.");
+
+        // Admin fallback: when the requester holds the step's position, nobody else can decide it.
+        if (IsAdminFallback(actor, step))
+            return step;
+
+        if (!actor.IsApprover || actor.Position != step.Position)
+            throw new ApprovalNotAllowedException($"Only {step.Position} is authorized to {verb} step {step.Order}.");
+
+        if (step.Scope == ApprovalScope.RequesterDepartment && actor.DepartmentId != DepartmentId)
+            throw new ApprovalNotAllowedException($"Step {step.Order} must only be {verb}d by a {step.Position} in the requester's department.");
+
+        return step;
+    }
+
+    private bool IsAdminFallback(User actor, ApprovalStep step) =>
+        actor.Role == UserRole.Admin && RequesterPosition == step.Position;
+
+    private string OnBehalfNote(User actor, ApprovalStep step) =>
+        IsAdminFallback(actor, step) ? $", decided by Admin on behalf of {step.Position}" : string.Empty;
+
+    private void SkipPendingSteps()
+    {
+        foreach (var pending in _approvalSteps.Where(s => s.Decision == StepDecision.Pending))
+            pending.Skip();
     }
 }

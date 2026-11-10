@@ -10,6 +10,7 @@ public sealed class ApprovalStep : Entity
     public Guid ServiceRequestId { get; private set; }
     public int Order { get; private set; }
     public ApproverPosition Position { get; private set; }
+    public ApproverPosition? EscalatedFrom {get; private set;}
     public ApprovalScope Scope { get; private set; }
     public StepDecision Decision { get; private set; } = StepDecision.Pending;
     public Guid? DecidedById { get; private set; }
@@ -18,12 +19,13 @@ public sealed class ApprovalStep : Entity
 
     private ApprovalStep() { } // For EF Core
 
-    internal ApprovalStep(Guid serviceRequestId, int order, ApproverPosition position, ApprovalScope scope)
+    internal ApprovalStep(Guid serviceRequestId, int order, ApproverPosition position, ApprovalScope scope, ApproverPosition? escalatedFrom = null)
     {
         ServiceRequestId = serviceRequestId;
         Order = order;
         Position = position;
         Scope = scope;
+        EscalatedFrom = escalatedFrom;
     }
 
     private void Decide(StepDecision decision, Guid approverId, string? comment, DateTimeOffset now)

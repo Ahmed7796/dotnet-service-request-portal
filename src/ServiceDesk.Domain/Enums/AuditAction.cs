@@ -12,4 +12,5 @@ public enum AuditAction
     StepRejected = 2,
     Fulfilled = 3,
     Cancelled = 4,
+    StepEscalated = 5
 }
