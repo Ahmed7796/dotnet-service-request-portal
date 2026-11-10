@@ -10,7 +10,7 @@ public sealed class AuditLog : Entity
     public Guid ServiceRequestId { get; private set; }
     public Guid ActorId { get; private set; }
     public AuditAction Action { get; private set; }
-    public RequestStatus? StatusBefore { get; private set; }  
+    public RequestStatus? StatusBefore { get; private set; }
     public RequestStatus StatusAfter { get; private set; }
     public string? Details { get; private set; }
     public DateTimeOffset OccurredAt { get; private set; }
@@ -21,7 +21,7 @@ public sealed class AuditLog : Entity
     {
         var detailsTrimmed = string.IsNullOrWhiteSpace(details) ? null : details.Trim();
         if (detailsTrimmed != null && detailsTrimmed.Length > DetailsMaxLength)
-        detailsTrimmed = detailsTrimmed[..DetailsMaxLength]; // If the details exceed character limit, just cut it to 200 characters and store, else store as it is.
+            detailsTrimmed = detailsTrimmed[..DetailsMaxLength]; // If the details exceed character limit, just cut it to 200 characters and store, else store as it is.
 
         ServiceRequestId = serviceRequestId;
         ActorId = actorId;

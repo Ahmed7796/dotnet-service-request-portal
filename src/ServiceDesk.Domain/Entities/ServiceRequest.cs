@@ -10,7 +10,7 @@ public sealed class ServiceRequest : Entity
     public const int DescriptionMaxLength = 4000;
 
     private readonly List<ApprovalStep> _approvalSteps = [];
-    public IReadOnlyList<ApprovalStep> ApprovalSteps => _approvalSteps.AsReadOnly(); 
+    public IReadOnlyList<ApprovalStep> ApprovalSteps => _approvalSteps.AsReadOnly();
 
     private readonly List<AuditLog> _auditLogs = [];
     public IReadOnlyList<AuditLog> AuditLogs => _auditLogs.AsReadOnly();
@@ -24,6 +24,8 @@ public sealed class ServiceRequest : Entity
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public byte[] RowVersion { get; private set; } = null!;
+    public ApprovalStep? CurrentStep => _approvalSteps.Where(s => s.Decision == StepDecision.Pending).OrderBy(s => s.Order).FirstOrDefault();
+
 
     private ServiceRequest() { } // For Core EF
 
@@ -34,18 +36,18 @@ public sealed class ServiceRequest : Entity
 
         var trimmedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         if (trimmedDescription == null)
-        throw new ArgumentException("Description is required.", nameof(description));
-        
+            throw new ArgumentException("Description is required.", nameof(description));
+
         if (trimmedDescription.Length > DescriptionMaxLength)
-        throw new ArgumentException($"Description can be only {DescriptionMaxLength} characters at most.", nameof(description));
-        
-        
+            throw new ArgumentException($"Description can be only {DescriptionMaxLength} characters at most.", nameof(description));
+
+
         if (string.IsNullOrWhiteSpace(title))
-        throw new ArgumentException("Title is required.", nameof(title));
+            throw new ArgumentException("Title is required.", nameof(title));
 
         var trimmedTitle = title.Trim();
-        if(trimmedTitle.Length > TitleMaxLength)
-        throw new ArgumentException($"Title can be {TitleMaxLength} characters at most.", nameof(title));
+        if (trimmedTitle.Length > TitleMaxLength)
+            throw new ArgumentException($"Title can be {TitleMaxLength} characters at most.", nameof(title));
 
         ServiceRequest request = new ServiceRequest();
         request.RequesterId = requester.Id;
@@ -56,7 +58,7 @@ public sealed class ServiceRequest : Entity
         request.Type = workflow.RequestType;
         request.CreatedAt = now;
         request.UpdatedAt = now;
-        
+
         foreach (var step in workflow.Steps.OrderBy(s => s.Order))
         {
             request._approvalSteps.Add(new ApprovalStep(request.Id, step.Order, step.Position, step.Scope));
@@ -66,8 +68,4 @@ public sealed class ServiceRequest : Entity
         return request;
     }
 
-    public ApprovalStep? CurrentStep()
-    {
-        return _approvalSteps.Where(s => s.Decision == StepDecision.Pending).OrderBy(s => s.Order).FirstOrDefault();        
-    }
 }

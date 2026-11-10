@@ -23,7 +23,7 @@ public static class RequestStateMachine
 
     public static RequestStatus Fire(RequestStatus from, RequestTrigger trigger)
     {
-        if(_transitions.TryGetValue((from ,trigger), out var next))
+        if (_transitions.TryGetValue((from, trigger), out var next))
             return next;
         else throw new InvalidStateTransitionException($"The trigger {trigger} cannot be applied to {from}");
     }

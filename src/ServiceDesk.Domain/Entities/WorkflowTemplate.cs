@@ -17,11 +17,11 @@ public sealed class WorkflowTemplate : Entity
     public WorkflowTemplate(RequestType requestType, string name, IEnumerable<(ApproverPosition Position, ApprovalScope Scope)> steps)
     {
         if (string.IsNullOrWhiteSpace(name))
-        throw new ArgumentException("Workflow name is required.", nameof(name));
+            throw new ArgumentException("Workflow name is required.", nameof(name));
 
         var trimmedName = name.Trim();
         if (trimmedName.Length > NameMaxLength)
-        throw new ArgumentException($"Workflow name must be at most {NameMaxLength} characters.", nameof(name));
+            throw new ArgumentException($"Workflow name must be at most {NameMaxLength} characters.", nameof(name));
 
         ArgumentNullException.ThrowIfNull(steps);
 
@@ -32,7 +32,7 @@ public sealed class WorkflowTemplate : Entity
         }
 
         if (_steps.Count == 0)
-        throw new ArgumentException("A workflow needs at least one approval step", nameof(steps));
+            throw new ArgumentException("A workflow needs at least one approval step", nameof(steps));
 
         Name = trimmedName;
         RequestType = requestType;

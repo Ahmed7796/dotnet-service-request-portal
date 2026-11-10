@@ -18,7 +18,7 @@ public sealed class ApprovalStep : Entity
 
     private ApprovalStep() { } // For EF Core
 
-    internal ApprovalStep(Guid serviceRequestId, int order, ApproverPosition position, ApprovalScope scope )
+    internal ApprovalStep(Guid serviceRequestId, int order, ApproverPosition position, ApprovalScope scope)
     {
         ServiceRequestId = serviceRequestId;
         Order = order;
@@ -30,7 +30,7 @@ public sealed class ApprovalStep : Entity
     {
         string? trimmed = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
         if (trimmed != null && trimmed.Length > CommentMaxLength)
-        throw new ArgumentException($"The max character limit of a comment is {CommentMaxLength}.", nameof(comment));
+            throw new ArgumentException($"The max character limit of a comment is {CommentMaxLength}.", nameof(comment));
         Decision = decision;
         DecidedById = approverId;
         Comment = trimmed;
