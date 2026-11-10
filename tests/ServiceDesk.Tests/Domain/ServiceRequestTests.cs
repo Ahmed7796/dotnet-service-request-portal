@@ -1,13 +1,19 @@
 using ServiceDesk.Domain.Entities;
 using ServiceDesk.Domain.Enums;
+using ServiceDesk.Domain.Exceptions;
 
 namespace ServiceDesk.Tests.Domain;
 
 public class ServiceRequestTests
 {
     private static readonly Guid FinanceDeptId = Guid.NewGuid();
+    private static readonly Guid ItDeptId = Guid.NewGuid();
     private static readonly DateTimeOffset Now = new(2026, 11, 10, 9, 0, 0, TimeSpan.Zero);
+
     private readonly User _requester = User.CreateRequester("user@mail.com", "0001", "hash", "Ali", FinanceDeptId);
+    private readonly User _itHead = User.CreateApprover("ithead@mail.com", "0002", "hash", "Jonas", ItDeptId, ApproverPosition.DepartmentHead);
+    private readonly User _itManager = User.CreateApprover("itmanager@mail.com", "0003", "hash", "Eobard", ItDeptId, ApproverPosition.ItManager);
+    private readonly User _financeHead = User.CreateApprover("financehead@mail.com", "0004", "hash", "Bruce", FinanceDeptId, ApproverPosition.DepartmentHead);
 
     private readonly WorkflowTemplate _equipmentWorkflow = new WorkflowTemplate(RequestType.Equipment, "Equipment Approval", [(ApproverPosition.DepartmentHead, ApprovalScope.RequesterDepartment), (ApproverPosition.ItManager, ApprovalScope.Global)]);
 
@@ -120,5 +126,52 @@ public class ServiceRequestTests
         var ex = Assert.Throws<ArgumentException>(() =>
         ServiceRequest.Submit(_requester, "new laptop", description, _equipmentWorkflow, Now));
         Assert.Equal("description", ex.ParamName);
+    }
+
+    [Fact]
+    public void Approve_FirstStepOfTwo_StatusInReview()
+    {
+        var request = SubmitValid();
+        
+        request.Approve(_financeHead, null, Now);
+        Assert.Equal(RequestStatus.InReview, request.Status);
+        Assert.Equal(StepDecision.Approved, request.ApprovalSteps[0].Decision);
+
+        var current = request.CurrentStep;
+        
+        Assert.NotNull(current);
+        Assert.Equal(2, current.Order);
+    }
+
+    [Fact]
+    public void Approve_FinalStep_StatusApproved()
+    {
+        var request = SubmitValid();
+        request.Approve(_financeHead, null, Now);
+        request.Approve(_itManager, null, Now);
+
+        Assert.Equal(RequestStatus.Approved, request.Status);
+
+        
+        Assert.Null(request.CurrentStep);
+
+        Assert.All(request.ApprovalSteps, step =>
+        {
+            Assert.Equal(StepDecision.Approved, step.Decision);
+        }
+        );
+    }
+
+    [Fact]
+    public void Approve_ByRequester_Throws()
+    {
+        var request = SubmitValid();
+        Assert.Throws<ApprovalNotAllowedException>(() => 
+        request.Approve(_requester, null, Now)
+        );
+
+        Assert.Equal(RequestStatus.Submitted, request.Status);
+        Assert.Equal(StepDecision.Pending ,request.ApprovalSteps[0].Decision);
+        Assert.Single(request.AuditLogs);
     }
 }

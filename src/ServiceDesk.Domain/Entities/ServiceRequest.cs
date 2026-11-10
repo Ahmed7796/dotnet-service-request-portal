@@ -1,6 +1,7 @@
-
 using ServiceDesk.Domain.Common;
 using ServiceDesk.Domain.Enums;
+using ServiceDesk.Domain.Exceptions;
+using ServiceDesk.Domain.Workflow;
 
 namespace ServiceDesk.Domain.Entities;
 
@@ -68,4 +69,41 @@ public sealed class ServiceRequest : Entity
         return request;
     }
 
+    public void Approve(User approver, string? comment, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(approver);
+
+        if(!RequestStateMachine.CanFire(Status, RequestTrigger.ApproveStep))
+        throw new InvalidStateTransitionException($"Cannot approve a request that is {Status}");
+        
+        var step = CurrentStep;
+        if (step is null)
+        throw new InvalidStateTransitionException("No approval step is awaiting a decision.");
+
+        if (RequesterId == approver.Id)
+        throw new ApprovalNotAllowedException("You cannot approve your own request.");
+
+        if (!approver.IsApprover || approver.Position != step.Position)
+        throw new ApprovalNotAllowedException($"Only {step.Position} is authorized to approve step {step.Order}.");
+
+        if (step.Scope == ApprovalScope.RequesterDepartment && approver.DepartmentId != DepartmentId)
+        throw new ApprovalNotAllowedException($"Step {step.Order} must only be approved by a {step.Position} in the requester's department.");
+    
+        var before = Status;
+        step.Approve(approver.Id, comment, now);
+
+        RequestTrigger trigger = CurrentStep == null ? RequestTrigger.ApproveFinalStep : RequestTrigger.ApproveStep;
+
+        Status = RequestStateMachine.Fire(before, trigger);
+        UpdatedAt = now;
+
+        _auditLogs.Add(
+            new AuditLog(Id,
+            approver.Id,
+            AuditAction.StepApproved,
+            before,
+            Status,
+            $"Step {step.Order} ({step.Position}) approved.",
+            now));
+    }
 }
