@@ -17,6 +17,6 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
         var trimmed = identifier.Trim();
         var email = trimmed.ToLowerInvariant();
 
-        return db.Users.FirstOrDefaultAsync(u => u.Email == email || u.EmployeeNumber == trimmed);
+        return db.Users.FirstOrDefaultAsync(u => u.Email == email || u.EmployeeNumber == trimmed, ct);
     }
 }
