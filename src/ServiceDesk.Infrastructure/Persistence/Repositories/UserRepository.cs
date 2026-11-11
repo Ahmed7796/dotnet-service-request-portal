@@ -12,7 +12,7 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
     }
 
     // Emails are stored lower-cased by the User factories, so normalise the same way before comparing.
-    public Task<User?> GetByEmailOrEmployeeNumber(string identifier)
+    public Task<User?> GetByEmailOrEmployeeNumberAsync(string identifier, CancellationToken ct)
     {
         var trimmed = identifier.Trim();
         var email = trimmed.ToLowerInvariant();
