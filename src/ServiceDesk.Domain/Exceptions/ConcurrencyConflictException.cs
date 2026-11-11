@@ -4,5 +4,5 @@ namespace ServiceDesk.Domain.Exceptions;
 /// </summary>
 public class ConcurrencyConflictException : DomainException
 {
-    public ConcurrencyConflictException(string message) : base(message) {}
+    public ConcurrencyConflictException(string message) : base(message) { }
 }

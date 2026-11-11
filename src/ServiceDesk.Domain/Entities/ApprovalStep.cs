@@ -10,7 +10,7 @@ public sealed class ApprovalStep : Entity
     public Guid ServiceRequestId { get; private set; }
     public int Order { get; private set; }
     public ApproverPosition Position { get; private set; }
-    public ApproverPosition? EscalatedFrom {get; private set;}
+    public ApproverPosition? EscalatedFrom { get; private set; }
     public ApprovalScope Scope { get; private set; }
     public StepDecision Decision { get; private set; } = StepDecision.Pending;
     public Guid? DecidedById { get; private set; }

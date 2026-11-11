@@ -6,5 +6,5 @@ namespace ServiceDesk.Application.Abstractions;
 /// </summary>
 public interface IUnitOfWork
 {
-        Task SaveChangesAsync(CancellationToken ct);
+    Task SaveChangesAsync(CancellationToken ct);
 }

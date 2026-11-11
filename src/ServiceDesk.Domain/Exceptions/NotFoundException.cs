@@ -4,5 +4,5 @@ namespace ServiceDesk.Domain.Exceptions;
 /// </summary>
 public class NotFoundException : DomainException
 {
-    public NotFoundException(string message) : base(message) {}
+    public NotFoundException(string message) : base(message) { }
 }

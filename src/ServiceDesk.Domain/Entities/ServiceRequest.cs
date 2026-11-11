@@ -63,11 +63,11 @@ public sealed class ServiceRequest : Entity
         request.UpdatedAt = now;
 
         request._auditLogs.Add(new AuditLog(request.Id, request.RequesterId, AuditAction.Submitted, null, RequestStatus.Submitted, "Submitted.", now));
-        
+
         foreach (var step in workflow.Steps.OrderBy(s => s.Order))
         {
             var requesterHoldsStep = requester.IsApprover && requester.Position == step.Position;
-        
+
             ApproverPosition? escalated = requesterHoldsStep ? EscalationPolicy.Escalate(step.Position) : null;
 
             if (escalated is not null)
@@ -92,7 +92,7 @@ public sealed class ServiceRequest : Entity
             {
                 request._approvalSteps.Add(new ApprovalStep(request.Id, step.Order, step.Position, step.Scope));
             }
-        
+
         }
         return request;
     }
