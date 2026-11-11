@@ -6,5 +6,5 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid id, CancellationToken ct);
 
     // Could be Email or Employee Number, useful for multi-identifier login.
-    Task<User?> GetByEmailOrEmployeeNumber(string identifier);
+    Task<User?> GetByEmailOrEmployeeNumberAsync(string identifier, CancellationToken ct);
 }
