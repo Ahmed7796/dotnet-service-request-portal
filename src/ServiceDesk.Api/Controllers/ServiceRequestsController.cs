@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServiceDesk.Application.DTOs;
 using ServiceDesk.Application.Services;
@@ -5,11 +6,10 @@ using ServiceDesk.Application.Services;
 namespace ServiceDesk.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/service-requests")]
 public sealed class ServiceRequestsController(ServiceRequestService service) : ControllerBase
 {
-    public const string UserIdHeader = "X-User-Id";
-
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ServiceRequestDto>>> List(CancellationToken ct)
     {
@@ -48,16 +48,19 @@ public sealed class ServiceRequestsController(ServiceRequestService service) : C
     }
 
     [HttpPost("{id:guid}/fulfil")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ServiceRequestDto>> Fulfil(Guid id, CancellationToken ct)
     {
         return Ok(await service.FulfilAsync(id, GetCurrentUserId(), ct));
     }
 
-    // TODO: replace with the JWT sub claim
+    // "sub" is kept as-is because AddJwtBearer sets MapInboundClaims = false.
     private Guid GetCurrentUserId()
     {
-        if (!Request.Headers.TryGetValue(UserIdHeader, out var value) || !Guid.TryParse(value, out var userId))
-            throw new ArgumentException($"A valid {UserIdHeader} header is required.", UserIdHeader);
+        var sub = User.FindFirst("sub")?.Value;
+
+        if (!Guid.TryParse(sub, out var userId))
+            throw new UnauthorizedAccessException("The access token has no valid user id (sub claim).");
 
         return userId;
     }

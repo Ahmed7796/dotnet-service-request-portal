@@ -14,6 +14,7 @@ public sealed class DomainExceptionHandler(IProblemDetailsService problemDetails
         (int Status, string Title)? mapping = exception switch
         {
             ArgumentException => (StatusCodes.Status400BadRequest, "Invalid input"),
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             ApprovalNotAllowedException => (StatusCodes.Status403Forbidden, "Action not allowed"),
             NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
             InvalidStateTransitionException => (StatusCodes.Status409Conflict, "Invalid state transition"),
