@@ -13,6 +13,15 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Dev convenience only: production would run migrations as a deployment step, not at startup.
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+    await DbSeeder.SeedAsync(db);
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

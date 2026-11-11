@@ -74,7 +74,8 @@ public sealed class User : Entity
         return new User(email, employeeNumber, passwordHash, displayName, departmentId, UserRole.Requester, null);
     }
 
-    public static User CreateApprover(string email,
+    public static User CreateApprover(
+        string email,
         string employeeNumber,
         string passwordHash,
         string displayName,
@@ -82,14 +83,14 @@ public sealed class User : Entity
         ApproverPosition position)
     {
         return new User(
-         email,
-         employeeNumber,
-         passwordHash,
-         displayName,
-         departmentId,
-         UserRole.Approver,
-         position
-         );
+            email,
+            employeeNumber,
+            passwordHash,
+            displayName,
+            departmentId,
+            UserRole.Approver,
+            position
+    );
     }
 
     public static User CreateAdmin(string email, string employeeNumber, string passwordHash, string displayName, Guid departmentId)
